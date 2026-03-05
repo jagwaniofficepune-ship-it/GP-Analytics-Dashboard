@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GP Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ── THEMES ── */
+[data-theme="light"] {
+  --bg:#f4f6fb; --surface:#ffffff; --card:#ffffff; --border:#e5e9f2;
+  --nav-bg:#1a1f36; --text:#1a1f36; --text2:#4a5568; --muted:#8896ab;
+  --row-hover:#f0f4ff; --row-sel:#dbeafe; --tbl-head:#f8faff;
+  --shadow:0 2px 12px rgba(26,31,54,0.08);
+}
+[data-theme="dark"] {
+  --bg:#0d1117; --surface:#161b27; --card:#1c2333; --border:#21293d;
+  --nav-bg:#0a0d17; --text:#e6edf3; --text2:#8b949e; --muted:#484f58;
+  --row-hover:#1f2d3d; --row-sel:#1d3a5f; --tbl-head:#161b27;
+  --shadow:0 2px 12px rgba(0,0,0,0.4);
+}
+
+:root {
+  --blue:#2563eb; --indigo:#4f46e5; --violet:#7c3aed; --pink:#db2777;
+  --green:#059669; --teal:#0891b2; --amber:#d97706; --red:#dc2626;
+  --orange:#ea580c;
+  --jan:#6366f1; --feb:#06b6d4; --mar:#10b981; --apr:#f59e0b;
+  --may:#ef4444; --jun:#8b5cf6; --jul:#ec4899; --aug:#14b8a6;
+  --sep:#f97316; --oct:#0ea5e9; --nov:#84cc16; --dec:#a855f7;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; font-size:13px; transition:background .25s,color .25s; }
+
+/* ── NAV ── */
+.nav {
+  background:var(--nav-bg);
+  height:52px; padding:0 1.5rem;
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:200;
+  box-shadow:0 1px 0 rgba(255,255,255,.05), 0 4px 20px rgba(0,0,0,.3);
+}
+.nav-brand { display:flex; align-items:center; gap:.6rem; }
+.nav-logo { width:28px; height:28px; background:linear-gradient(135deg,#6366f1,#3b82f6); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:.95rem; flex-shrink:0; }
+.nav-title { font-size:.95rem; font-weight:700; color:#fff; letter-spacing:-.01em; }
+.nav-sub { font-size:.65rem; color:#8b949e; margin-top:.05rem; }
+.nav-right { display:flex; align-items:center; gap:.5rem; }
+.nav-pill { display:flex; align-items:center; gap:.3rem; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); padding:.22rem .6rem; border-radius:6px; font-size:.65rem; font-weight:600; font-family:'JetBrains Mono',monospace; color:#34d399; }
+.live-dot { width:6px; height:6px; background:#34d399; border-radius:50%; animation:pulse 1.5s infinite; }
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.nbtn { padding:.3rem .75rem; border-radius:6px; font-family:'Inter',sans-serif; font-size:.72rem; font-weight:600; cursor:pointer; border:none; transition:all .15s; display:flex; align-items:center; gap:.3rem; }
+.nbtn-ghost { background:rgba(255,255,255,.08); color:#cbd5e1; border:1px solid rgba(255,255,255,.1); }
+.nbtn-ghost:hover { background:rgba(255,255,255,.15); }
+.nbtn-pdf { background:linear-gradient(135deg,#ea580c,#dc2626); color:#fff; }
+.nbtn-pdf:hover { opacity:.88; }
+.nbtn-theme { background:rgba(255,255,255,.08); color:#fff; border:1px solid rgba(255,255,255,.1); font-size:.8rem; }
+
+/* ── FILTER PANEL ── */
+.filter-panel {
+  background:var(--surface); border-bottom:1px solid var(--border);
+  padding:.6rem 1.5rem; display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;
+  transition:background .25s;
+}
+.fp-label { font-size:.62rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; white-space:nowrap; }
+.fp-group { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+
+/* Month checkbox pills */
+.month-pills { display:flex; gap:.3rem; flex-wrap:wrap; }
+.mpill { display:flex; align-items:center; gap:.25rem; padding:.22rem .55rem; border-radius:20px; border:1.5px solid var(--border); font-size:.67rem; font-weight:600; cursor:pointer; transition:all .15s; user-select:none; }
+.mpill input { display:none; }
+.mpill.active { color:#fff; border-color:transparent; }
+
+select, input[type="date"] {
+  background:var(--bg); border:1px solid var(--border); color:var(--text);
+  padding:.3rem .55rem; border-radius:6px; font-family:'Inter',sans-serif;
+  font-size:.72rem; outline:none; cursor:pointer; transition:border-color .15s,background .25s,color .25s;
+}
+select:focus,input[type="date"]:focus { border-color:#6366f1; }
+
+.fbtn { padding:.3rem .7rem; border-radius:6px; font-size:.72rem; font-weight:600; border:none; cursor:pointer; transition:all .15s; }
+.fbtn-apply { background:#6366f1; color:#fff; }
+.fbtn-apply:hover { background:#4f46e5; }
+.fbtn-reset { background:var(--bg); color:var(--muted); border:1px solid var(--border); }
+.fbtn-reset:hover { border-color:#6366f1; color:#6366f1; }
+
+.filter-sep { width:1px; height:20px; background:var(--border); }
+
+/* ── TABS ── */
+.tabs { background:var(--surface); border-bottom:1px solid var(--border); padding:0 1.5rem; display:flex; gap:0; transition:background .25s; }
+.tab { padding:.7rem 1.1rem; font-size:.76rem; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; transition:all .15s; white-space:nowrap; }
+.tab:hover { color:var(--text); }
+.tab.active { color:#6366f1; border-bottom-color:#6366f1; }
+
+/* ── MAIN ── */
+.main { padding:1.1rem 1.5rem 3rem; max-width:1600px; margin:0 auto; }
+.view { display:none; }
+.view.active { display:block; }
+
+/* ── KPI ROW ── */
+.kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:.75rem; margin-bottom:.9rem; }
+.kpi {
+  background:var(--card); border:1px solid var(--border); border-radius:10px;
+  padding:.85rem 1rem; position:relative; overflow:hidden;
+  transition:box-shadow .2s,transform .2s,background .25s;
+  cursor:default;
+}
+.kpi:hover { box-shadow:var(--shadow); transform:translateY(-2px); }
+.kpi-accent { position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:10px 0 0 10px; }
+.kpi-icon { font-size:1.2rem; margin-bottom:.35rem; }
+.kpi-lbl { font-size:.6rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:.2rem; }
+.kpi-val { font-size:1.4rem; font-weight:800; line-height:1; letter-spacing:-.02em; margin-bottom:.15rem; font-family:'JetBrains Mono',monospace; }
+.kpi-sub { font-size:.62rem; color:var(--muted); }
+.kpi-trend { font-size:.62rem; font-weight:700; margin-top:.15rem; }
+.trend-up { color:#059669; }
+.trend-dn { color:#dc2626; }
+
+/* ── CHART GRID ── */
+.chart-grid { display:grid; gap:.75rem; margin-bottom:.75rem; }
+.cg2 { grid-template-columns:1fr 1fr; }
+.cg3 { grid-template-columns:1fr 1fr 1fr; }
+.cg-full { grid-template-columns:1fr; }
+.cg-21 { grid-template-columns:2fr 1fr; }
+
+.ccard {
+  background:var(--card); border:1px solid var(--border); border-radius:10px;
+  padding:1rem 1.1rem; transition:box-shadow .2s,background .25s;
+}
+.ccard:hover { box-shadow:var(--shadow); }
+.cc-hd { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:.75rem; }
+.cc-ttl { font-size:.8rem; font-weight:700; color:var(--text); }
+.cc-sub { font-size:.62rem; color:var(--muted); margin-top:.1rem; }
+.cc-tag { font-size:.58rem; padding:.14rem .45rem; border-radius:20px; font-weight:700; background:#eff6ff; color:#1d4ed8; font-family:'JetBrains Mono',monospace; white-space:nowrap; }
+[data-theme="dark"] .cc-tag { background:#1e3a5f; color:#93c5fd; }
+canvas { max-height:220px; }
+
+/* ── MONTH COMPARISON TABLE ── */
+.mom-table { width:100%; border-collapse:collapse; }
+.mom-table th { padding:.5rem .8rem; text-align:left; font-size:.6rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; background:var(--tbl-head); border-bottom:1px solid var(--border); }
+.mom-table td { padding:.55rem .8rem; font-size:.75rem; border-bottom:1px solid var(--border); color:var(--text2); }
+.mom-table tr:last-child td { border-bottom:none; }
+.mom-table tr:hover td { background:var(--row-hover); }
+.mono { font-family:'JetBrains Mono',monospace; font-weight:600; }
+.chg-pos { color:#059669; font-weight:700; font-family:'JetBrains Mono',monospace; }
+.chg-neg { color:#dc2626; font-weight:700; font-family:'JetBrains Mono',monospace; }
+.chg-neu { color:var(--muted); font-weight:600; font-family:'JetBrains Mono',monospace; }
+
+/* ── MAIN DATA TABLE ── */
+.tbl-toolbar { display:flex; align-items:center; gap:.5rem; padding:.65rem 1rem; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.tbl-title { font-size:.82rem; font-weight:700; }
+.tbl-count { font-size:.65rem; font-family:'JetBrains Mono',monospace; color:var(--muted); background:var(--bg); padding:.18rem .5rem; border-radius:5px; border:1px solid var(--border); }
+.tbl-sel-count { font-size:.65rem; color:#6366f1; font-weight:700; background:#eff6ff; padding:.18rem .5rem; border-radius:5px; border:1px solid #c7d2fe; }
+[data-theme="dark"] .tbl-sel-count { background:#1e3a5f; border-color:#3b5280; color:#93c5fd; }
+.tbl-actions { margin-left:auto; display:flex; gap:.4rem; }
+.tbl-btn { padding:.25rem .65rem; border-radius:5px; font-size:.68rem; font-weight:600; border:1px solid var(--border); background:var(--bg); color:var(--text2); cursor:pointer; transition:all .15s; }
+.tbl-btn:hover { border-color:#6366f1; color:#6366f1; }
+.tbl-btn-print { background:#6366f1; color:#fff; border-color:#6366f1; }
+.tbl-btn-print:hover { background:#4f46e5; }
+.tbl-btn-clear { color:var(--muted); }
+
+.tbl-wrap { overflow-x:auto; }
+.data-table { width:100%; border-collapse:collapse; }
+.data-table th { padding:.45rem .75rem; text-align:left; font-size:.6rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; background:var(--tbl-head); border-bottom:2px solid var(--border); white-space:nowrap; position:sticky; top:0; z-index:1; }
+.data-table th.sortable { cursor:pointer; user-select:none; }
+.data-table th.sortable:hover { color:#6366f1; }
+.data-table td { padding:.45rem .75rem; font-size:.73rem; border-bottom:1px solid var(--border); color:var(--text2); white-space:nowrap; transition:background .1s; }
+.data-table tr:last-child td { border-bottom:none; }
+.data-table tr:hover td { background:var(--row-hover); }
+.data-table tr.selected td { background:var(--row-sel) !important; }
+.data-table td:first-child { padding-left:.5rem; }
+.chk-col { width:32px; }
+.td-date { font-weight:600; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:.68rem; }
+.td-month { display:inline-block; padding:.1rem .4rem; border-radius:12px; font-size:.62rem; font-weight:700; color:#fff; }
+.td-profit { font-weight:700; font-family:'JetBrains Mono',monospace; }
+.td-pct { font-family:'JetBrains Mono',monospace; font-weight:600; }
+.pill-sm { display:inline-block; padding:.1rem .42rem; border-radius:12px; font-size:.62rem; font-weight:700; }
+.p-green { background:#dcfce7; color:#166534; }
+.p-amber { background:#fef3c7; color:#92400e; }
+.p-red   { background:#fee2e2; color:#991b1b; }
+.p-blue  { background:#dbeafe; color:#1e40af; }
+[data-theme="dark"] .p-green { background:rgba(16,185,129,.15); color:#34d399; }
+[data-theme="dark"] .p-amber { background:rgba(245,158,11,.15); color:#fbbf24; }
+[data-theme="dark"] .p-red   { background:rgba(220,38,38,.15);  color:#f87171; }
+[data-theme="dark"] .p-blue  { background:rgba(37,99,235,.15);  color:#60a5fa; }
+
+/* checkbox style */
+input[type="checkbox"] { width:14px; height:14px; accent-color:#6366f1; cursor:pointer; }
+
+
+/* ── SHEET BANNER ── */
+.sheet-banner {
+  background:linear-gradient(135deg,#1e3a5f,#312e81);
+  padding:.5rem 1.5rem; display:flex; align-items:center;
+  gap:.7rem; flex-wrap:wrap;
+}
+.sheet-banner label { font-size:.68rem; font-weight:700; color:#93c5fd; white-space:nowrap; font-family:'JetBrains Mono',monospace; }
+.sheet-input { flex:1; min-width:220px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); color:#fff; padding:.32rem .75rem; border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:.68rem; outline:none; transition:border-color .15s; }
+.sheet-input::placeholder { color:rgba(255,255,255,.3); }
+.sheet-input:focus { border-color:#818cf8; }
+.btn-connect { background:linear-gradient(135deg,#6366f1,#3b82f6); color:#fff; padding:.32rem .9rem; border-radius:6px; font-size:.72rem; font-weight:700; cursor:pointer; border:none; white-space:nowrap; transition:opacity .2s; }
+.btn-connect:hover { opacity:.85; }
+.sheet-status { font-size:.66rem; color:#fbbf24; font-family:'JetBrains Mono',monospace; white-space:nowrap; }
+.sheet-status.ok { color:#34d399; }
+/* ── REFRESH BAR ── */
+.refresh-bar-wrap { background:var(--surface); border-bottom:1px solid var(--border); padding:.35rem 1.5rem; display:flex; align-items:center; gap:.6rem; font-size:.66rem; color:var(--muted); font-family:'JetBrains Mono',monospace; transition:background .25s; }
+.rbar-track { flex:1; max-width:160px; height:3px; background:var(--border); border-radius:3px; overflow:hidden; }
+.rbar-fill { height:100%; background:linear-gradient(90deg,#6366f1,#06b6d4); border-radius:3px; transition:width 1s linear; }
+
+/* ── PRINT ── */
+@media print {
+  .nav,.filter-panel,.tabs,.tbl-toolbar { display:none !important; }
+  .view { display:block !important; }
+  .main { padding:0; }
+  .print-section { display:block !important; }
+  .no-print { display:none !important; }
+  body { background:#fff !important; }
+  .card,.ccard,.kpi { box-shadow:none !important; border:1px solid #ddd !important; }
+}
+.print-section { display:none; }
+
+/* ── TOAST ── */
+.toast { position:fixed; bottom:1.5rem; right:1.5rem; background:linear-gradient(135deg,#1e1b4b,#312e81); color:#fff; padding:.6rem 1rem; border-radius:8px; font-size:.75rem; font-weight:500; box-shadow:0 8px 30px rgba(0,0,0,.3); transform:translateY(60px); opacity:0; transition:all .25s ease; z-index:999; border:1px solid rgba(99,102,241,.3); }
+.toast.show { transform:translateY(0); opacity:1; }
+
+/* ── DIVIDER ── */
+.section-title { font-size:.7rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; margin:.9rem 0 .5rem; display:flex; align-items:center; gap:.5rem; }
+.section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){.cg2,.cg3,.cg-21{grid-template-columns:1fr}.main{padding:.75rem}.filter-panel{padding:.5rem .75rem}.tabs{overflow-x:auto}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="nav-logo">📊</div>
+    <div>
+      <div class="nav-title">GP Analytics Dashboard</div>
+      <div class="nav-sub">Gross Profit · Month-on-Month · Date Trends</div>
+    </div>
+  </div>
+  <div class="nav-right">
+    <div class="nav-pill"><div class="live-dot"></div> LIVE</div>
+    <button class="nbtn nbtn-theme" id="themeBtn" onclick="toggleTheme()">🌙</button>
+    <button class="nbtn nbtn-pdf" onclick="exportPDF()">📄 Export PDF</button>
+  </div>
+</nav>
+
+<!-- FILTER PANEL -->
+<div class="filter-panel">
+  <span class="fp-label">Months</span>
+  <div class="month-pills" id="monthPills"></div>
+  <div class="filter-sep"></div>
+  <span class="fp-label">Date Range</span>
+  <div class="fp-group">
+    <input type="date" id="dateFrom">
+    <span style="color:var(--muted);font-size:.7rem">→</span>
+    <input type="date" id="dateTo">
+  </div>
+  <div class="filter-sep"></div>
+  <span class="fp-label">Sort</span>
+  <select id="sortBy">
+    <option value="date">Date ↑</option>
+    <option value="profit_desc">Profit ↓</option>
+    <option value="profit_pct_desc">Profit% ↓</option>
+    <option value="sales_desc">Sales ↓</option>
+    <option value="qty_desc">Qty ↓</option>
+  </select>
+  <button class="fbtn fbtn-apply" onclick="applyFilters()">Apply Filters</button>
+  <button class="fbtn fbtn-reset" onclick="resetFilters()">Reset</button>
+</div>
+
+
+<!-- GOOGLE SHEET BANNER -->
+<div class="sheet-banner">
+  <label>🔗 GOOGLE SHEET CSV URL:</label>
+  <input class="sheet-input" id="sheetUrl" type="text" placeholder="Paste your Google Sheet published CSV link here to enable live data...">
+  <button class="btn-connect" onclick="connectSheet()">Connect & Load</button>
+  <span class="sheet-status" id="sheetStatus">⚡ Using built-in data — paste Google Sheet link above for live updates</span>
+</div>
+<!-- AUTO REFRESH BAR -->
+<div class="refresh-bar-wrap">
+  <span>Auto-refresh in</span>
+  <span id="countdownTxt" style="color:#6366f1;font-weight:700;">30s</span>
+  <div class="rbar-track"><div class="rbar-fill" id="rbarFill" style="width:100%"></div></div>
+  <span id="lastUpdatedTxt">Last updated: just now</span>
+  <button onclick="manualRefresh()" style="margin-left:.5rem;background:#6366f1;color:#fff;border:none;padding:.2rem .6rem;border-radius:5px;font-size:.66rem;font-weight:700;cursor:pointer;">↻ Refresh Now</button>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('overview')">📈 Overview</div>
+  <div class="tab" onclick="switchTab('trends')">📅 Date-wise Trends</div>
+  <div class="tab" onclick="switchTab('monthly')">📆 Monthly Summary</div>
+  <div class="tab" onclick="switchTab('comparison')">⚖️ Month Comparison</div>
+  <div class="tab" onclick="switchTab('table')">📋 Data Table</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ════ OVERVIEW TAB ════ -->
+  <div class="view active" id="view-overview">
+
+    <div class="kpi-row" id="kpiRow"></div>
+
+    <div class="chart-grid cg2">
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">💰 Net Profit on MRP — Daily</div><div class="cc-sub">Day-wise profit trend</div></div><span class="cc-tag">LINE</span></div>
+        <canvas id="c_profit_line"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">📊 Profit % on MRP vs Purchase</div><div class="cc-sub">Both metrics daily</div></div><span class="cc-tag">LINE</span></div>
+        <canvas id="c_pct_dual"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-grid cg3">
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">🛒 Retail vs Wholesale Profit</div><div class="cc-sub">Channel profit split</div></div><span class="cc-tag">STACKED BAR</span></div>
+        <canvas id="c_channel_profit"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">📦 Daily Sales Qty</div><div class="cc-sub">Total units sold</div></div><span class="cc-tag">BAR</span></div>
+        <canvas id="c_qty"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">🍩 Profit by Month</div><div class="cc-sub">Month-wise share</div></div><span class="cc-tag">DONUT</span></div>
+        <canvas id="c_month_donut"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════ DATE TRENDS TAB ════ -->
+  <div class="view" id="view-trends">
+
+    <div class="chart-grid cg-full">
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">📈 Daily Net Profit on MRP — Full Trend</div><div class="cc-sub">Every trading day, color-coded by month</div></div><span class="cc-tag">BAR</span></div>
+        <canvas id="c_daily_bar" style="max-height:280px"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-grid cg2">
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">📉 Profit % on MRP — Daily</div><div class="cc-sub">Percentage trend over time</div></div><span class="cc-tag">AREA</span></div>
+        <canvas id="c_pct_area"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">💹 Total Sales Amount — Daily</div><div class="cc-sub">Revenue per trading day</div></div><span class="cc-tag">AREA</span></div>
+        <canvas id="c_sales_area"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-grid cg2">
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">🏪 BPC (Buying Price Change) — Daily</div><div class="cc-sub">Purchase rate fluctuation</div></div><span class="cc-tag">LINE</span></div>
+        <canvas id="c_bpc"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">⚖️ Purchase Amount vs MRP</div><div class="cc-sub">Cost vs value comparison</div></div><span class="cc-tag">AREA</span></div>
+        <canvas id="c_purchase_mrp"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════ MONTHLY SUMMARY TAB ════ -->
+  <div class="view" id="view-monthly">
+
+    <div class="kpi-row" id="monthlyKPIs"></div>
+
+    <div class="chart-grid cg2">
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">📆 Monthly Net Profit on MRP</div><div class="cc-sub">Total profit per month</div></div><span class="cc-tag">BAR</span></div>
+        <canvas id="c_monthly_profit"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">📆 Monthly Avg Profit %</div><div class="cc-sub">Average profit % on MRP per month</div></div><span class="cc-tag">LINE</span></div>
+        <canvas id="c_monthly_pct"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-grid cg2">
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">📦 Monthly Total Sales Qty</div><div class="cc-sub">Units sold per month</div></div><span class="cc-tag">BAR</span></div>
+        <canvas id="c_monthly_qty"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">💰 Monthly Revenue</div><div class="cc-sub">Total sales amount per month</div></div><span class="cc-tag">BAR</span></div>
+        <canvas id="c_monthly_sales"></canvas>
+      </div>
+    </div>
+
+    <div class="section-title">Monthly Summary Table</div>
+    <div class="ccard" style="padding:0;overflow:hidden">
+      <div class="tbl-wrap">
+        <table class="mom-table" id="monthlySummaryTable"></table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════ COMPARISON TAB ════ -->
+  <div class="view" id="view-comparison">
+
+    <div class="chart-grid cg-full">
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">⚖️ Month-on-Month: Net Profit (MRP) Comparison</div><div class="cc-sub">Overlapping daily profit by month — compare performance directly</div></div><span class="cc-tag">MULTI-LINE</span></div>
+        <canvas id="c_mom_profit" style="max-height:280px"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-grid cg2">
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">⚖️ Month-on-Month: Profit % (MRP)</div><div class="cc-sub">Profit percentage comparison across months</div></div><span class="cc-tag">MULTI-LINE</span></div>
+        <canvas id="c_mom_pct"></canvas>
+      </div>
+      <div class="ccard">
+        <div class="cc-hd"><div><div class="cc-ttl">⚖️ Month-on-Month: Sales Amount</div><div class="cc-sub">Revenue comparison across months</div></div><span class="cc-tag">MULTI-LINE</span></div>
+        <canvas id="c_mom_sales"></canvas>
+      </div>
+    </div>
+
+    <div class="section-title">Month-on-Month Change Table</div>
+    <div class="ccard" style="padding:0;overflow:hidden">
+      <div class="tbl-wrap">
+        <table class="mom-table" id="momTable"></table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ════ DATA TABLE TAB ════ -->
+  <div class="view" id="view-table">
+    <div class="ccard" style="padding:0;overflow:hidden">
+      <div class="tbl-toolbar">
+        <div class="tbl-title">📋 Daily Records</div>
+        <div class="tbl-count" id="tblCount">— records</div>
+        <div class="tbl-sel-count" id="selCount" style="display:none">0 selected</div>
+        <div class="tbl-actions">
+          <button class="tbl-btn tbl-btn-clear" onclick="clearSelection()">Clear Selection</button>
+          <button class="tbl-btn" onclick="selectAll()">Select All</button>
+          <button class="tbl-btn tbl-btn-print" onclick="printSelected()">🖨️ Print Selected</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="data-table" id="dataTable">
+          <thead>
+            <tr>
+              <th class="chk-col"><input type="checkbox" id="selectAllChk" onchange="toggleSelectAll(this)"></th>
+              <th class="sortable" onclick="sortTable('date')">Date ↕</th>
+              <th class="sortable" onclick="sortTable('month')">Month ↕</th>
+              <th class="sortable" onclick="sortTable('total_qty')">Total Qty ↕</th>
+              <th class="sortable" onclick="sortTable('total_sales')">Sales Amt ↕</th>
+              <th class="sortable" onclick="sortTable('mrp')">MRP ↕</th>
+              <th>Retail Qty</th>
+              <th>Retail Sales</th>
+              <th>Retail Profit</th>
+              <th>WS Qty</th>
+              <th>WS Sales</th>
+              <th>WS Profit</th>
+              <th class="sortable" onclick="sortTable('net_profit_mrp')">Net Profit MRP ↕</th>
+              <th class="sortable" onclick="sortTable('net_profit_mrp_pct')">Profit% MRP ↕</th>
+              <th class="sortable" onclick="sortTable('net_profit_purchase_pct')">Profit% Purch ↕</th>
+              <th>BPC</th>
+              <th>Purchase Amt</th>
+              <th>Performance</th>
+            </tr>
+          </thead>
+          <tbody id="tblBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- PRINT SECTION (hidden, shown only during print) -->
+<div class="print-section" id="printArea"></div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  RAW DATA — from your Excel file
+// ══════════════════════════════════════════════
+const RAW = [{"date":"2026-01-01","month":1,"bpc":43.49,"retail_qty":2668.0,"retail_rate":493.96,"retail_sales":480915.0,"rsv":481486.0,"rpv":437241.27,"retail_profit":44244.73,"ws_qty":1177.0,"ws_rate":24.58,"ws_sales":84435.0,"wsv":88645.0,"wpv":78027.39,"ws_profit":10617.61,"total_qty":3845.0,"total_sales":565350.0,"mrp":570131.0,"purchase_rate":450.87,"purchase_amt":515280.0,"net_profit_mrp":54851.0,"net_profit_mrp_pct":8.51,"net_profit_purchase_pct":9.79},{"date":"2026-01-02","month":1,"bpc":38.89,"retail_qty":2190.0,"retail_rate":568.55,"retail_sales":480410.0,"rsv":480974.0,"rpv":436545.75,"retail_profit":44428.25,"ws_qty":935.0,"ws_rate":114.49,"ws_sales":103122.0,"wsv":106837.0,"wpv":92481.6,"ws_profit":14355.4,"total_qty":3125.0,"total_sales":583532.0,"mrp":587811.0,"purchase_rate":595.32,"purchase_amt":529038.0,"net_profit_mrp":58773.0,"net_profit_mrp_pct":9.96,"net_profit_purchase_pct":12.45},{"date":"2026-01-03","month":1,"bpc":41.07,"retail_qty":2561.0,"retail_rate":631.52,"retail_sales":507770.0,"rsv":507835.0,"rpv":460728.97,"retail_profit":47106.03,"ws_qty":1441.0,"ws_rate":48.04,"ws_sales":112120.0,"wsv":116735.0,"wpv":103999.14,"ws_profit":12735.86,"total_qty":4002.0,"total_sales":619890.0,"mrp":624570.0,"purchase_rate":577.28,"purchase_amt":564732.0,"net_profit_mrp":59838.0,"net_profit_mrp_pct":8.61,"net_profit_purchase_pct":9.93},{"date":"2026-01-04","month":1,"bpc":40.41,"retail_qty":3233.0,"retail_rate":507.04,"retail_sales":563605.0,"rsv":564248.0,"rpv":512672.42,"retail_profit":51575.58,"ws_qty":1066.0,"ws_rate":32.97,"ws_sales":103405.0,"wsv":106470.0,"wpv":95948.57,"ws_profit":10521.43,"total_qty":4299.0,"total_sales":667010.0,"mrp":670718.0,"purchase_rate":474.63,"purchase_amt":608620.0,"net_profit_mrp":62098.0,"net_profit_mrp_pct":8.6,"net_profit_purchase_pct":10.02},{"date":"2026-01-05","month":1,"bpc":44.13,"retail_qty":2648.0,"retail_rate":424.11,"retail_sales":387635.0,"rsv":387999.0,"rpv":351491.08,"retail_profit":36507.92,"ws_qty":1084.0,"ws_rate":24.31,"ws_sales":99879.0,"wsv":103210.0,"wpv":91626.27,"ws_profit":11583.73,"total_qty":3732.0,"total_sales":487514.0,"mrp":491209.0,"purchase_rate":391.67,"purchase_amt":443119.0,"net_profit_mrp":48090.0,"net_profit_mrp_pct":8.56,"net_profit_purchase_pct":9.87},{"date":"2026-01-06","month":1,"bpc":45.53,"retail_qty":2002.0,"retail_rate":441.94,"retail_sales":351056.4,"rsv":351490.0,"rpv":316839.61,"retail_profit":34650.39,"ws_qty":2040.0,"ws_rate":43.38,"ws_sales":141305.0,"wsv":147975.0,"wpv":130839.31,"ws_profit":17135.69,"total_qty":4042.0,"total_sales":492361.4,"mrp":499465.0,"purchase_rate":410.97,"purchase_amt":447692.0,"net_profit_mrp":51773.0,"net_profit_mrp_pct":8.56,"net_profit_purchase_pct":9.85},{"date":"2026-01-07","month":1,"bpc":43.01,"retail_qty":2191.0,"retail_rate":505.06,"retail_sales":461423.6,"rsv":462733.0,"rpv":422018.68,"retail_profit":40714.32,"ws_qty":1505.0,"ws_rate":16.94,"ws_sales":123515.0,"wsv":127865.0,"wpv":115111.65,"ws_profit":12753.35,"total_qty":3696.0,"total_sales":584938.6,"mrp":590598.0,"purchase_rate":467.08,"purchase_amt":537130.0,"net_profit_mrp":53468.0,"net_profit_mrp_pct":9.0,"net_profit_purchase_pct":0},{"date":"2026-01-08","month":1,"bpc":40.32,"retail_qty":1646.0,"retail_rate":300.68,"retail_sales":410951.8,"rsv":411025.0,"rpv":372369.1,"retail_profit":38655.9,"ws_qty":6390.0,"ws_rate":760.95,"ws_sales":1586258.0,"wsv":1598172.0,"wpv":1424305.09,"ws_profit":173866.91,"total_qty":8036.0,"total_sales":1997209.8,"mrp":2009197.0,"purchase_rate":786.65,"purchase_amt":1796678.0,"net_profit_mrp":212519.0,"net_profit_mrp_pct":11.99,"net_profit_purchase_pct":0},{"date":"2026-01-09","month":1,"bpc":40.4,"retail_qty":2755.0,"retail_rate":627.69,"retail_sales":627751.8,"rsv":628310.0,"rpv":570312.88,"retail_profit":57997.12,"ws_qty":1643.0,"ws_rate":79.64,"ws_sales":201730.0,"wsv":205870.0,"wpv":185122.1,"ws_profit":20747.9,"total_qty":4398.0,"total_sales":829481.8,"mrp":834180.0,"purchase_rate":582.08,"purchase_amt":755438.0,"net_profit_mrp":78742.0,"net_profit_mrp_pct":9.12,"net_profit_purchase_pct":10.81},{"date":"2026-01-10","month":1,"bpc":38.85,"retail_qty":3149.0,"retail_rate":581.42,"retail_sales":568126.6,"rsv":568781.0,"rpv":513540.11,"retail_profit":55240.89,"ws_qty":1516.0,"ws_rate":32.43,"ws_sales":165205.0,"wsv":168995.0,"wpv":152920.46,"ws_profit":16074.54,"total_qty":4665.0,"total_sales":733331.6,"mrp":841296.0,"purchase_rate":523.3,"purchase_amt":752060.0,"net_profit_mrp":89236.0,"net_profit_mrp_pct":9.25,"net_profit_purchase_pct":0},{"date":"2026-01-11","month":1,"bpc":38.84,"retail_qty":3851.0,"retail_rate":684.91,"retail_sales":721456.6,"rsv":721725.0,"rpv":656261.32,"retail_profit":65463.68,"ws_qty":3613.0,"ws_rate":28.56,"ws_sales":248337.0,"wsv":259950.0,"wpv":229478.69,"ws_profit":30471.31,"total_qty":7464.0,"total_sales":969793.6,"mrp":981675.0,"purchase_rate":627.99,"purchase_amt":885747.0,"net_profit_mrp":95928.0,"net_profit_mrp_pct":9.19,"net_profit_purchase_pct":11.08},{"date":"2026-01-12","month":1,"bpc":43.4,"retail_qty":1954.0,"retail_rate":550.8,"retail_sales":402473.4,"rsv":404208.0,"rpv":366663.86,"retail_profit":37544.14,"ws_qty":2602.0,"ws_rate":51.41,"ws_sales":280233.0,"wsv":287555.0,"wpv":260404.2,"ws_profit":27150.8,"total_qty":4556.0,"total_sales":682706.4,"mrp":691763.0,"purchase_rate":521.32,"purchase_amt":627076.0,"net_profit_mrp":64687.0,"net_profit_mrp_pct":8.39,"net_profit_purchase_pct":9.56},{"date":"2026-01-13","month":1,"bpc":41.28,"retail_qty":3252.0,"retail_rate":531.2,"retail_sales":684675.6,"rsv":685435.0,"rpv":624265.73,"retail_profit":61169.27,"ws_qty":353.0,"ws_rate":16.8,"ws_sales":38965.0,"wsv":40075.0,"wpv":36260.15,"ws_profit":3814.85,"total_qty":3605.0,"total_sales":723640.6,"mrp":725510.0,"purchase_rate":487.64,"purchase_amt":660532.0,"net_profit_mrp":64978.0,"net_profit_mrp_pct":8.6,"net_profit_purchase_pct":9.9},{"date":"2026-01-16","month":1,"bpc":40.39,"retail_qty":927.0,"retail_rate":595.9,"retail_sales":229790.4,"rsv":229825.0,"rpv":209160.77,"retail_profit":20664.23,"ws_qty":0,"ws_rate":0,"ws_sales":0,"wsv":0,"wpv":0,"ws_profit":0,"total_qty":927.0,"total_sales":229790.4,"mrp":229825.0,"purchase_rate":543.38,"purchase_amt":209165.0,"net_profit_mrp":20660.0,"net_profit_mrp_pct":8.59,"net_profit_purchase_pct":9.97},{"date":"2026-01-17","month":1,"bpc":40.5,"retail_qty":3571.0,"retail_rate":643.66,"retail_sales":784363.4,"rsv":784888.0,"rpv":708163.3,"retail_profit":76724.7,"ws_qty":1086.0,"ws_rate":25.85,"ws_sales":90200.0,"wsv":93335.0,"wpv":83134.69,"ws_profit":10200.31,"total_qty":4657.0,"total_sales":874563.4,"mrp":878223.0,"purchase_rate":592.13,"purchase_amt":791298.0,"net_profit_mrp":86925.0,"net_profit_mrp_pct":9.09,"net_profit_purchase_pct":10.91},{"date":"2026-01-18","month":1,"bpc":37.31,"retail_qty":3613.0,"retail_rate":613.09,"retail_sales":742232.8,"rsv":742889.0,"rpv":675135.83,"retail_profit":67753.17,"ws_qty":1175.0,"ws_rate":28.3,"ws_sales":107355.0,"wsv":110490.0,"wpv":99970.88,"ws_profit":10519.12,"total_qty":4788.0,"total_sales":849587.8,"mrp":853379.0,"purchase_rate":570.95,"purchase_amt":775103.0,"net_profit_mrp":78276.0,"net_profit_mrp_pct":8.31,"net_profit_purchase_pct":9.4},{"date":"2026-01-19","month":1,"bpc":43.16,"retail_qty":2550.0,"retail_rate":524.64,"retail_sales":392880.2,"rsv":392893.0,"rpv":354461.11,"retail_profit":38431.89,"ws_qty":854.0,"ws_rate":9.9,"ws_sales":60875.0,"wsv":63550.0,"wpv":55977.17,"ws_profit":7572.83,"total_qty":3404.0,"total_sales":453755.2,"mrp":456443.0,"purchase_rate":481.92,"purchase_amt":410442.0,"net_profit_mrp":46001.0,"net_profit_mrp_pct":8.55,"net_profit_purchase_pct":9.77},{"date":"2026-01-20","month":1,"bpc":41.9,"retail_qty":2358.0,"retail_rate":512.3,"retail_sales":430430.6,"rsv":430510.0,"rpv":387927.8,"retail_profit":42582.2,"ws_qty":1590.0,"ws_rate":44.47,"ws_sales":124080.0,"wsv":128825.0,"wpv":114953.76,"ws_profit":13871.24,"total_qty":3948.0,"total_sales":554510.6,"mrp":559335.0,"purchase_rate":469.65,"purchase_amt":502890.0,"net_profit_mrp":56445.0,"net_profit_mrp_pct":8.96,"net_profit_purchase_pct":0},{"date":"2026-01-21","month":1,"bpc":38.65,"retail_qty":2563.0,"retail_rate":656.12,"retail_sales":501605.8,"rsv":501791.0,"rpv":452651.25,"retail_profit":49139.75,"ws_qty":1172.0,"ws_rate":27.77,"ws_sales":101370.0,"wsv":104935.0,"wpv":94186.34,"ws_profit":10748.66,"total_qty":3735.0,"total_sales":602975.8,"mrp":606726.0,"purchase_rate":589.05,"purchase_amt":546845.0,"net_profit_mrp":59881.0,"net_profit_mrp_pct":9.99,"net_profit_purchase_pct":0},{"date":"2026-01-22","month":1,"bpc":41.82,"retail_qty":2321.0,"retail_rate":555.04,"retail_sales":429176.4,"rsv":429278.0,"rpv":390102.04,"retail_profit":39175.96,"ws_qty":1692.0,"ws_rate":39.93,"ws_sales":136260.0,"wsv":141040.0,"wpv":126265.49,"ws_profit":14774.51,"total_qty":4013.0,"total_sales":565436.4,"mrp":571568.0,"purchase_rate":514.44,"purchase_amt":517530.0,"net_profit_mrp":54038.0,"net_profit_mrp_pct":8.87,"net_profit_purchase_pct":10.44},{"date":"2026-01-23","month":1,"bpc":39.4,"retail_qty":2601.0,"retail_rate":692.61,"retail_sales":605237.2,"rsv":604866.0,"rpv":550689.13,"retail_profit":54176.87,"ws_qty":988.0,"ws_rate":26.74,"ws_sales":132310.0,"wsv":134550.0,"wpv":122718.65,"ws_profit":11831.35,"total_qty":3589.0,"total_sales":737547.2,"mrp":758901.0,"purchase_rate":625.53,"purchase_amt":691417.0,"net_profit_mrp":67484.0,"net_profit_mrp_pct":9.29,"net_profit_purchase_pct":0},{"date":"2026-01-24","month":1,"bpc":35.7,"retail_qty":3027.0,"retail_rate":708.67,"retail_sales":691162.0,"rsv":690782.0,"rpv":623757.44,"retail_profit":67024.56,"ws_qty":1699.0,"ws_rate":36.95,"ws_sales":186570.0,"wsv":190520.0,"wpv":172365.2,"ws_profit":18154.8,"total_qty":4726.0,"total_sales":877732.0,"mrp":911842.0,"purchase_rate":652.38,"purchase_amt":822556.0,"net_profit_mrp":89286.0,"net_profit_mrp_pct":9.28,"net_profit_purchase_pct":11.13},{"date":"2026-01-25","month":1,"bpc":36.5,"retail_qty":4197.0,"retail_rate":668.63,"retail_sales":883693.8,"rsv":883977.0,"rpv":798719.55,"retail_profit":85257.45,"ws_qty":2013.0,"ws_rate":29.34,"ws_sales":285335.0,"wsv":290085.0,"wpv":261303.76,"ws_profit":28781.24,"total_qty":6210.0,"total_sales":1169028.8,"mrp":1174622.0,"purchase_rate":609.37,"purchase_amt":1060549.0,"net_profit_mrp":114073.0,"net_profit_mrp_pct":9.48,"net_profit_purchase_pct":0},{"date":"2026-01-27","month":1,"bpc":41.86,"retail_qty":2692.0,"retail_rate":530.16,"retail_sales":426727.0,"rsv":426727.0,"rpv":385000.15,"retail_profit":41726.85,"ws_qty":1318.0,"ws_rate":65.73,"ws_sales":135085.0,"wsv":139980.0,"wpv":125405.18,"ws_profit":14574.82,"total_qty":4010.0,"total_sales":561812.0,"mrp":570257.0,"purchase_rate":498.86,"purchase_amt":513698.0,"net_profit_mrp":56559.0,"net_profit_mrp_pct":9.17,"net_profit_purchase_pct":0},{"date":"2026-01-28","month":1,"bpc":40.46,"retail_qty":2162.0,"retail_rate":542.27,"retail_sales":492503.0,"rsv":492558.0,"rpv":448663.46,"retail_profit":43894.54,"ws_qty":3114.0,"ws_rate":102.57,"ws_sales":375875.0,"wsv":382936.0,"wpv":346450.31,"ws_profit":36485.69,"total_qty":5276.0,"total_sales":868378.0,"mrp":875494.0,"purchase_rate":552.02,"purchase_amt":795117.0,"net_profit_mrp":80377.0,"net_profit_mrp_pct":8.92,"net_profit_purchase_pct":10.46},{"date":"2026-01-29","month":1,"bpc":44.51,"retail_qty":2287.0,"retail_rate":604.72,"retail_sales":409866.2,"rsv":409954.0,"rpv":371186.52,"retail_profit":38767.48,"ws_qty":2055.0,"ws_rate":41.73,"ws_sales":227360.0,"wsv":232250.0,"wpv":207999.07,"ws_profit":24250.93,"total_qty":4342.0,"total_sales":637226.2,"mrp":642204.0,"purchase_rate":552.03,"purchase_amt":579193.0,"net_profit_mrp":63011.0,"net_profit_mrp_pct":8.99,"net_profit_purchase_pct":10.6},{"date":"2026-01-31","month":1,"bpc":35.4,"retail_qty":3123.0,"retail_rate":738.74,"retail_sales":764683.2,"rsv":765731.0,"rpv":695008.39,"retail_profit":70722.61,"ws_qty":1450.0,"ws_rate":40.67,"ws_sales":120733.0,"wsv":124970.0,"wpv":111485.84,"ws_profit":13484.16,"total_qty":4573.0,"total_sales":885416.2,"mrp":890701.0,"purchase_rate":673.4,"purchase_amt":806499.0,"net_profit_mrp":84202.0,"net_profit_mrp_pct":9.77,"net_profit_purchase_pct":0},{"date":"2026-02-01","month":2,"bpc":39.63,"retail_qty":3707.0,"retail_rate":559.91,"retail_sales":693921.2,"rsv":694179.0,"rpv":628806.49,"retail_profit":65372.51,"ws_qty":1020.0,"ws_rate":82.63,"ws_sales":94050.0,"wsv":97030.0,"wpv":86067.79,"ws_profit":10962.21,"total_qty":4727.0,"total_sales":787971.2,"mrp":794289.0,"purchase_rate":547.45,"purchase_amt":717494.0,"net_profit_mrp":76795.0,"net_profit_mrp_pct":8.98,"net_profit_purchase_pct":10.57},{"date":"2026-02-02","month":2,"bpc":42.32,"retail_qty":2299.0,"retail_rate":541.53,"retail_sales":391750.6,"rsv":392017.0,"rpv":354341.04,"retail_profit":37675.96,"ws_qty":1578.0,"ws_rate":28.84,"ws_sales":101715.0,"wsv":106880.0,"wpv":94876.91,"ws_profit":12003.09,"total_qty":3877.0,"total_sales":493465.6,"mrp":498897.0,"purchase_rate":496.81,"purchase_amt":449213.0,"net_profit_mrp":49684.0,"net_profit_mrp_pct":8.69,"net_profit_purchase_pct":10.12},{"date":"2026-02-03","month":2,"bpc":41.77,"retail_qty":2535.0,"retail_rate":595.93,"retail_sales":456889.0,"rsv":456904.0,"rpv":413423.95,"retail_profit":43480.05,"ws_qty":1216.0,"ws_rate":46.18,"ws_sales":91865.0,"wsv":95830.0,"wpv":85313.19,"ws_profit":10516.81,"total_qty":3751.0,"total_sales":548754.0,"mrp":552734.0,"purchase_rate":544.49,"purchase_amt":498740.0,"net_profit_mrp":53994.0,"net_profit_mrp_pct":8.68,"net_profit_purchase_pct":10.03},{"date":"2026-02-04","month":2,"bpc":43.06,"retail_qty":2449.0,"retail_rate":501.77,"retail_sales":451847.0,"rsv":452067.0,"rpv":404967.21,"retail_profit":47099.79,"ws_qty":495.0,"ws_rate":10.9,"ws_sales":53405.0,"wsv":54685.0,"wpv":49442.98,"ws_profit":5242.02,"total_qty":2944.0,"total_sales":505252.0,"mrp":508912.0,"purchase_rate":461.64,"purchase_amt":456244.0,"net_profit_mrp":52668.0,"net_profit_mrp_pct":8.55,"net_profit_purchase_pct":9.86},{"date":"2026-02-05","month":2,"bpc":40.99,"retail_qty":2484.0,"retail_rate":586.1,"retail_sales":447985.0,"rsv":448235.0,"rpv":407520.76,"retail_profit":40714.24,"ws_qty":872.0,"ws_rate":50.17,"ws_sales":131945.0,"wsv":133920.0,"wpv":121502.78,"ws_profit":12417.22,"total_qty":3356.0,"total_sales":579930.0,"mrp":582155.0,"purchase_rate":540.44,"purchase_amt":529024.0,"net_profit_mrp":53131.0,"net_profit_mrp_pct":8.94,"net_profit_purchase_pct":10.6},{"date":"2026-02-06","month":2,"bpc":38.36,"retail_qty":2629.0,"retail_rate":665.14,"retail_sales":653778.0,"rsv":654458.0,"rpv":598036.76,"retail_profit":56421.24,"ws_qty":2371.0,"ws_rate":11.19,"ws_sales":147997.0,"wsv":155860.0,"wpv":137912.8,"ws_profit":17947.2,"total_qty":5000.0,"total_sales":801775.0,"mrp":810318.0,"purchase_rate":611.84,"purchase_amt":735946.0,"net_profit_mrp":74372.0,"net_profit_mrp_pct":8.66,"net_profit_purchase_pct":10.02},{"date":"2026-02-07","month":2,"bpc":38.22,"retail_qty":3812.0,"retail_rate":660.86,"retail_sales":799795.0,"rsv":801175.0,"rpv":728539.5,"retail_profit":72635.5,"ws_qty":634.0,"ws_rate":9.69,"ws_sales":88575.0,"wsv":91230.0,"wpv":82335.19,"ws_profit":8894.81,"total_qty":4446.0,"total_sales":888370.0,"mrp":892405.0,"purchase_rate":603.92,"purchase_amt":810876.0,"net_profit_mrp":81529.0,"net_profit_mrp_pct":8.9,"net_profit_purchase_pct":10.51},{"date":"2026-02-08","month":2,"bpc":39.58,"retail_qty":3290.0,"retail_rate":617.15,"retail_sales":661834.0,"rsv":663204.0,"rpv":601290.3,"retail_profit":61913.7,"ws_qty":1178.0,"ws_rate":19.54,"ws_sales":110470.0,"wsv":113805.0,"wpv":102447.15,"ws_profit":11357.85,"total_qty":4468.0,"total_sales":772304.0,"mrp":777009.0,"purchase_rate":557.03,"purchase_amt":703741.0,"net_profit_mrp":73268.0,"net_profit_mrp_pct":8.97,"net_profit_purchase_pct":10.62},{"date":"2026-02-09","month":2,"bpc":43.73,"retail_qty":2462.0,"retail_rate":518.63,"retail_sales":414996.0,"rsv":415066.0,"rpv":376193.16,"retail_profit":38872.84,"ws_qty":906.0,"ws_rate":91.78,"ws_sales":123815.0,"wsv":126420.0,"wpv":113980.59,"ws_profit":12439.41,"total_qty":3368.0,"total_sales":538811.0,"mrp":541486.0,"purchase_rate":501.23,"purchase_amt":490173.0,"net_profit_mrp":51313.0,"net_profit_mrp_pct":9.36,"net_profit_purchase_pct":11.15},{"date":"2026-02-10","month":2,"bpc":42.69,"retail_qty":2971.0,"retail_rate":568.34,"retail_sales":609679.0,"rsv":609819.0,"rpv":556140.58,"retail_profit":53678.42,"ws_qty":1168.0,"ws_rate":27.89,"ws_sales":127366.0,"wsv":132150.0,"wpv":120152.29,"ws_profit":11997.71,"total_qty":4139.0,"total_sales":737045.0,"mrp":741969.0,"purchase_rate":514.89,"purchase_amt":676298.0,"net_profit_mrp":65671.0,"net_profit_mrp_pct":9.45,"net_profit_purchase_pct":0}];
+
+// ── MONTH META ──
+const MONTH_NAMES = {1:'January',2:'February',3:'March',4:'April',5:'May',6:'June',7:'July',8:'August',9:'September',10:'October',11:'November',12:'December'};
+const MONTH_SHORT = {1:'Jan',2:'Feb',3:'Mar',4:'Apr',5:'May',6:'Jun',7:'Jul',8:'Aug',9:'Sep',10:'Oct',11:'Nov',12:'Dec'};
+const MONTH_COLORS = {1:'#6366f1',2:'#06b6d4',3:'#10b981',4:'#f59e0b',5:'#ef4444',6:'#8b5cf6',7:'#ec4899',8:'#14b8a6',9:'#f97316',10:'#0ea5e9',11:'#84cc16',12:'#a855f7'};
+
+let ALL = [...RAW];
+let filtered = [...RAW];
+let charts = {};
+let isDark = false;
+let selectedMonths = new Set();
+let sortField = 'date', sortAsc = true;
+
+// ── HELPERS ──
+const fmtL  = v => v>=1e7?'₹'+(v/1e7).toFixed(2)+'Cr':v>=1e5?'₹'+(v/1e5).toFixed(1)+'L':v>=1e3?'₹'+(v/1e3).toFixed(1)+'K':'₹'+v.toFixed(0);
+const fmtK  = v => v>=1e3?(v/1e3).toFixed(1)+'K':v.toFixed(0);
+const fmtPct= v => v.toFixed(2)+'%';
+const fmtDt = d => { const p=d.split('-'); return p[2]+' '+MONTH_SHORT[parseInt(p[1])]; };
+const avgArr= arr => arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
+
+// ── TOAST ──
+function toast(m,d=2800){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),d); }
+
+// ── DARK / LIGHT ──
+function toggleTheme(){
+  isDark=!isDark;
+  document.documentElement.setAttribute('data-theme',isDark?'dark':'light');
+  document.getElementById('themeBtn').textContent=isDark?'☀️':'🌙';
+  renderAll();
+  toast(isDark?'🌙 Dark mode':'☀️ Light mode');
+}
+
+// ── PDF ──
+function exportPDF(){ window.print(); }
+
+// ── TAB SWITCH ──
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const tabs=['overview','trends','monthly','comparison','table'];
+    t.classList.toggle('active', tabs[i]===name);
+  });
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  renderAll();
+}
+
+// ── MONTH PILLS INIT ──
+function initMonthPills(){
+  const months = [...new Set(ALL.map(d=>d.month))].sort((a,b)=>a-b);
+  months.forEach(m=>selectedMonths.add(m));
+  const container = document.getElementById('monthPills');
+  container.innerHTML = months.map(m=>`
+    <label class="mpill active" id="mpill_${m}" style="border-color:${MONTH_COLORS[m]};background:${MONTH_COLORS[m]}">
+      <input type="checkbox" checked onchange="toggleMonth(${m},this)">
+      ${MONTH_SHORT[m]}
+    </label>`).join('');
+}
+
+function toggleMonth(m, el){
+  if(el.checked) selectedMonths.add(m); else selectedMonths.delete(m);
+  const pill = document.getElementById('mpill_'+m);
+  if(el.checked){
+    pill.classList.add('active');
+    pill.style.background=MONTH_COLORS[m]; pill.style.borderColor=MONTH_COLORS[m]; pill.style.color='#fff';
+  } else {
+    pill.classList.remove('active');
+    pill.style.background=''; pill.style.borderColor=MONTH_COLORS[m]+'66'; pill.style.color=MONTH_COLORS[m];
+  }
+}
+
+// ── FILTERS ──
+function applyFilters(){
+  const from = document.getElementById('dateFrom').value;
+  const to   = document.getElementById('dateTo').value;
+  const sort = document.getElementById('sortBy').value;
+  filtered = ALL.filter(d =>
+    selectedMonths.has(d.month) &&
+    (!from || d.date >= from) &&
+    (!to   || d.date <= to)
+  );
+  if(sort==='profit_desc')       filtered.sort((a,b)=>b.net_profit_mrp-a.net_profit_mrp);
+  else if(sort==='profit_pct_desc') filtered.sort((a,b)=>b.net_profit_mrp_pct-a.net_profit_mrp_pct);
+  else if(sort==='sales_desc')   filtered.sort((a,b)=>b.total_sales-a.total_sales);
+  else if(sort==='qty_desc')     filtered.sort((a,b)=>b.total_qty-a.total_qty);
+  else filtered.sort((a,b)=>a.date.localeCompare(b.date));
+  renderAll();
+  toast(`✅ ${filtered.length} records filtered`);
+}
+
+function resetFilters(){
+  document.getElementById('dateFrom').value = ALL.map(d=>d.date).sort()[0];
+  document.getElementById('dateTo').value   = ALL.map(d=>d.date).sort().slice(-1)[0];
+  document.getElementById('sortBy').value   = 'date';
+  selectedMonths = new Set(ALL.map(d=>d.month));
+  document.querySelectorAll('.mpill input').forEach(c=>c.checked=true);
+  document.querySelectorAll('.mpill').forEach(p=>{
+    const m=parseInt(p.id.split('_')[1]);
+    p.classList.add('active');
+    p.style.background=MONTH_COLORS[m]; p.style.borderColor=MONTH_COLORS[m]; p.style.color='#fff';
+  });
+  filtered=[...ALL];
+  renderAll();
+  toast('🔄 Filters reset');
+}
+
+function setDateRange(){
+  const dates = ALL.map(d=>d.date).sort();
+  document.getElementById('dateFrom').value = dates[0];
+  document.getElementById('dateTo').value   = dates[dates.length-1];
+}
+
+// ── MONTHLY AGGREGATION ──
+function getMonthly(){
+  const months = [...new Set(filtered.map(d=>d.month))].sort((a,b)=>a-b);
+  return months.map(m=>{
+    const rows = filtered.filter(d=>d.month===m);
+    return {
+      month: m,
+      name:  MONTH_NAMES[m],
+      short: MONTH_SHORT[m],
+      color: MONTH_COLORS[m],
+      days:  rows.length,
+      total_profit_mrp: rows.reduce((s,d)=>s+d.net_profit_mrp,0),
+      avg_profit_mrp_pct: avgArr(rows.filter(d=>d.net_profit_mrp_pct>0).map(d=>d.net_profit_mrp_pct)),
+      avg_profit_pur_pct: avgArr(rows.filter(d=>d.net_profit_purchase_pct>0).map(d=>d.net_profit_purchase_pct)),
+      total_sales: rows.reduce((s,d)=>s+d.total_sales,0),
+      total_qty: rows.reduce((s,d)=>s+d.total_qty,0),
+      total_retail_profit: rows.reduce((s,d)=>s+d.retail_profit,0),
+      total_ws_profit: rows.reduce((s,d)=>s+d.ws_profit,0),
+      best_day: rows.reduce((a,b)=>a.net_profit_mrp>b.net_profit_mrp?a:b).date,
+      best_profit: Math.max(...rows.map(d=>d.net_profit_mrp)),
+    };
+  });
+}
+
+// ── CHART HELPERS ──
+function gc(){ return { grid:isDark?'rgba(255,255,255,.04)':'rgba(229,233,242,.8)', tick:isDark?'#484f58':'#8896ab', tip:isDark?'#0d1117':'#1a1f36' }; }
+
+function mkLine(id, labels, datasets, yFmt, extra={}){
+  if(charts[id]) charts[id].destroy();
+  const c=gc();
+  charts[id] = new Chart(document.getElementById(id),{
+    type:'line', data:{labels,datasets},
+    options:{ responsive:true,maintainAspectRatio:true,
+      plugins:{ legend:{labels:{color:c.tick,font:{family:'Inter',size:10},boxWidth:9,padding:8}}, tooltip:{backgroundColor:c.tip,borderColor:'#334155',borderWidth:1,titleColor:'#e6edf3',bodyColor:'#8b949e',padding:8, callbacks:{label:ctx=>yFmt?' '+fmtL(ctx.raw)+' ':' '+ctx.raw.toFixed(2)+'%'}} },
+      scales:{ x:{ticks:{color:c.tick,font:{size:9,family:'Inter'}},grid:{color:c.grid},border:{display:false}}, y:{ticks:{color:c.tick,font:{size:9,family:'Inter'},callback:v=>yFmt?fmtL(v):v+'%'},grid:{color:c.grid},border:{display:false}} },
+      ...extra }});
+}
+
+function mkBar(id, labels, datasets, yFmt, extra={}){
+  if(charts[id]) charts[id].destroy();
+  const c=gc();
+  charts[id] = new Chart(document.getElementById(id),{
+    type:'bar', data:{labels,datasets},
+    options:{ responsive:true,maintainAspectRatio:true,
+      plugins:{ legend:{labels:{color:c.tick,font:{family:'Inter',size:10},boxWidth:9,padding:8}}, tooltip:{backgroundColor:c.tip,borderColor:'#334155',borderWidth:1,titleColor:'#e6edf3',bodyColor:'#8b949e',padding:8, callbacks:{label:ctx=>yFmt?' '+fmtL(ctx.raw):' '+ctx.raw.toLocaleString()+' units'}} },
+      scales:{ x:{ticks:{color:c.tick,font:{size:9,family:'Inter'}},grid:{color:'transparent'},border:{display:false}}, y:{ticks:{color:c.tick,font:{size:9,family:'Inter'},callback:v=>yFmt?fmtL(v):fmtK(v)},grid:{color:c.grid},border:{display:false}} },
+      ...extra }});
+}
+
+// ── KPIs ──
+function renderKPIs(){
+  const d = filtered;
+  const tP = d.reduce((s,r)=>s+r.net_profit_mrp,0);
+  const tS = d.reduce((s,r)=>s+r.total_sales,0);
+  const tQ = d.reduce((s,r)=>s+r.total_qty,0);
+  const aP = avgArr(d.filter(r=>r.net_profit_mrp_pct>0).map(r=>r.net_profit_mrp_pct));
+  const aPp= avgArr(d.filter(r=>r.net_profit_purchase_pct>0).map(r=>r.net_profit_purchase_pct));
+  const tRP= d.reduce((s,r)=>s+r.retail_profit,0);
+  const tWP= d.reduce((s,r)=>s+r.ws_profit,0);
+  const best= d.length?d.reduce((a,b)=>a.net_profit_mrp>b.net_profit_mrp?a:b):{date:'-',net_profit_mrp:0};
+
+  const kpis=[
+    {icon:'💰',lbl:'Net Profit (MRP)',val:fmtL(tP),sub:d.length+' days total',c:'#6366f1',trend:null},
+    {icon:'📊',lbl:'Avg Profit % MRP',val:aP.toFixed(2)+'%',sub:'Daily average',c:'#059669',trend:null},
+    {icon:'📈',lbl:'Avg Profit % Purchase',val:aPp.toFixed(2)+'%',sub:'Daily average',c:'#0891b2',trend:null},
+    {icon:'💹',lbl:'Total Sales',val:fmtL(tS),sub:'Revenue',c:'#d97706',trend:null},
+    {icon:'📦',lbl:'Total Qty Sold',val:fmtK(tQ),sub:'Units',c:'#7c3aed',trend:null},
+    {icon:'🛒',lbl:'Retail Profit',val:fmtL(tRP),sub:'Channel split',c:'#db2777',trend:null},
+    {icon:'🏭',lbl:'Wholesale Profit',val:fmtL(tWP),sub:'Channel split',c:'#ea580c',trend:null},
+    {icon:'🏆',lbl:'Best Day Profit',val:fmtL(best.net_profit_mrp),sub:best.date,c:'#dc2626',trend:null},
+  ];
+
+  document.getElementById('kpiRow').innerHTML = kpis.map(k=>`
+    <div class="kpi">
+      <div class="kpi-accent" style="background:${k.c}"></div>
+      <div class="kpi-icon">${k.icon}</div>
+      <div class="kpi-lbl">${k.lbl}</div>
+      <div class="kpi-val" style="color:${k.c}">${k.val}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+// ── OVERVIEW CHARTS ──
+function renderOverview(){
+  const s = [...filtered].sort((a,b)=>a.date.localeCompare(b.date));
+  const lbl = s.map(d=>fmtDt(d.date));
+
+  mkLine('c_profit_line', lbl, [{
+    label:'Net Profit MRP', data:s.map(d=>d.net_profit_mrp),
+    borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,.1)',
+    fill:true, tension:.4, pointRadius:3, pointBackgroundColor:'#6366f1', pointBorderColor:'#fff', pointBorderWidth:1.5,
+    segment:{ borderColor:ctx=>{ const m=s[ctx.p0DataIndex]?.month; return MONTH_COLORS[m]||'#6366f1'; }}
+  }], true);
+
+  mkLine('c_pct_dual', lbl, [
+    { label:'Profit% on MRP', data:s.map(d=>d.net_profit_mrp_pct||null), borderColor:'#059669', backgroundColor:'rgba(5,150,105,.08)', fill:false, tension:.4, pointRadius:3, pointBackgroundColor:'#059669', pointBorderColor:'#fff', pointBorderWidth:1.5 },
+    { label:'Profit% on Purchase', data:s.map(d=>d.net_profit_purchase_pct||null), borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,.08)', fill:false, tension:.4, pointRadius:3, pointBackgroundColor:'#0891b2', pointBorderColor:'#fff', pointBorderWidth:1.5 }
+  ], false);
+
+  mkBar('c_channel_profit', lbl, [
+    { label:'Retail Profit', data:s.map(d=>d.retail_profit), backgroundColor:'rgba(124,58,237,.8)', borderRadius:3, stack:'x' },
+    { label:'WS Profit',     data:s.map(d=>d.ws_profit),     backgroundColor:'rgba(8,145,178,.8)', borderRadius:3, stack:'x' }
+  ], true, {scales:{x:{stacked:true,ticks:{color:gc().tick,font:{size:9,family:'Inter'}},grid:{color:'transparent'},border:{display:false}},y:{stacked:true,ticks:{color:gc().tick,font:{size:9,family:'Inter'},callback:v=>fmtL(v)},grid:{color:gc().grid},border:{display:false}}}});
+
+  mkBar('c_qty', lbl, [{
+    label:'Total Qty', data:s.map(d=>d.total_qty),
+    backgroundColor:s.map(d=>MONTH_COLORS[d.month]+'bb'), borderRadius:3
+  }], false);
+
+  // Donut by month
+  const monthly = getMonthly();
+  if(charts['c_month_donut']) charts['c_month_donut'].destroy();
+  charts['c_month_donut'] = new Chart(document.getElementById('c_month_donut'),{
+    type:'doughnut',
+    data:{ labels:monthly.map(m=>m.name), datasets:[{ data:monthly.map(m=>m.total_profit_mrp), backgroundColor:monthly.map(m=>m.color+'dd'), borderWidth:2, borderColor:isDark?'#1c2333':'#fff', hoverOffset:6 }]},
+    options:{ responsive:true, maintainAspectRatio:true, plugins:{
+      legend:{labels:{color:gc().tick,font:{family:'Inter',size:10},boxWidth:9}},
+      tooltip:{backgroundColor:gc().tip,callbacks:{label:ctx=>' '+fmtL(ctx.raw)+' ('+((ctx.raw/ctx.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)+'%)'}}
+    }}});
+}
+
+// ── DATE TRENDS CHARTS ──
+function renderTrends(){
+  const s = [...filtered].sort((a,b)=>a.date.localeCompare(b.date));
+  const lbl = s.map(d=>fmtDt(d.date));
+  const c=gc();
+
+  mkBar('c_daily_bar', lbl, [{
+    label:'Net Profit MRP', data:s.map(d=>d.net_profit_mrp),
+    backgroundColor:s.map(d=>MONTH_COLORS[d.month]+'cc'), borderRadius:4, borderSkipped:false
+  }], true);
+
+  mkLine('c_pct_area', lbl, [{
+    label:'Profit% MRP', data:s.map(d=>d.net_profit_mrp_pct||null),
+    borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,.12)', fill:true, tension:.4, pointRadius:3, pointBackgroundColor:'#6366f1', pointBorderColor:'#fff', pointBorderWidth:1.5
+  }], false);
+
+  mkLine('c_sales_area', lbl, [{
+    label:'Total Sales', data:s.map(d=>d.total_sales),
+    borderColor:'#d97706', backgroundColor:'rgba(217,119,6,.1)', fill:true, tension:.4, pointRadius:3, pointBackgroundColor:'#d97706', pointBorderColor:'#fff', pointBorderWidth:1.5
+  }], true);
+
+  mkLine('c_bpc', lbl, [{
+    label:'BPC', data:s.map(d=>d.bpc),
+    borderColor:'#ec4899', backgroundColor:'rgba(236,72,153,.08)', fill:false, tension:.4, pointRadius:3, pointBackgroundColor:'#ec4899', pointBorderColor:'#fff', pointBorderWidth:1.5
+  }], false, {plugins:{legend:{labels:{color:c.tick,font:{family:'Inter',size:10},boxWidth:9}}, tooltip:{backgroundColor:c.tip,bodyColor:'#8b949e',titleColor:'#e6edf3',padding:8,callbacks:{label:ctx=>' BPC: '+ctx.raw.toFixed(2)}}},scales:{x:{ticks:{color:c.tick,font:{size:9,family:'Inter'}},grid:{color:c.grid},border:{display:false}},y:{ticks:{color:c.tick,font:{size:9,family:'Inter'}},grid:{color:c.grid},border:{display:false}}}});
+
+  mkLine('c_purchase_mrp', lbl, [
+    { label:'MRP Amount', data:s.map(d=>d.mrp), borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.08)', fill:true, tension:.4, pointRadius:2, borderDash:[4,3] },
+    { label:'Purchase Amt', data:s.map(d=>d.purchase_amt), borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,.08)', fill:true, tension:.4, pointRadius:2 }
+  ], true);
+}
+
+// ── MONTHLY CHARTS ──
+function renderMonthly(){
+  const m = getMonthly();
+  const lbl = m.map(x=>x.name);
+
+  // Monthly KPIs
+  const best = m.reduce((a,b)=>a.total_profit_mrp>b.total_profit_mrp?a:b);
+  const worst= m.reduce((a,b)=>a.total_profit_mrp<b.total_profit_mrp?a:b);
+  document.getElementById('monthlyKPIs').innerHTML = [
+    {icon:'📆',lbl:'Months in View',val:m.length,sub:'Selected months',c:'#6366f1'},
+    {icon:'🏆',lbl:'Best Month',val:best.short,sub:fmtL(best.total_profit_mrp)+' profit',c:'#059669'},
+    {icon:'📉',lbl:'Lowest Month',val:worst.short,sub:fmtL(worst.total_profit_mrp)+' profit',c:'#dc2626'},
+    {icon:'📊',lbl:'Total Profit',val:fmtL(m.reduce((s,x)=>s+x.total_profit_mrp,0)),sub:'All months combined',c:'#d97706'},
+    {icon:'💹',lbl:'Total Revenue',val:fmtL(m.reduce((s,x)=>s+x.total_sales,0)),sub:'All months',c:'#7c3aed'},
+    {icon:'📦',lbl:'Total Qty',val:fmtK(m.reduce((s,x)=>s+x.total_qty,0)),sub:'All units',c:'#0891b2'},
+  ].map(k=>`<div class="kpi"><div class="kpi-accent" style="background:${k.c}"></div><div class="kpi-icon">${k.icon}</div><div class="kpi-lbl">${k.lbl}</div><div class="kpi-val" style="color:${k.c}">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
+
+  mkBar('c_monthly_profit', lbl, [{ label:'Net Profit MRP', data:m.map(x=>x.total_profit_mrp), backgroundColor:m.map(x=>x.color+'cc'), borderRadius:6, borderSkipped:false }], true);
+
+  mkLine('c_monthly_pct', lbl, [
+    { label:'Avg Profit% MRP', data:m.map(x=>x.avg_profit_mrp_pct), borderColor:'#059669', backgroundColor:'rgba(5,150,105,.1)', fill:true, tension:.4, pointRadius:6, pointBackgroundColor:'#059669', pointBorderColor:'#fff', pointBorderWidth:2 },
+    { label:'Avg Profit% Purchase', data:m.map(x=>x.avg_profit_pur_pct), borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,.08)', fill:false, tension:.4, pointRadius:6, pointBackgroundColor:'#0891b2', pointBorderColor:'#fff', pointBorderWidth:2 }
+  ], false);
+
+  mkBar('c_monthly_qty', lbl, [{ label:'Total Qty', data:m.map(x=>x.total_qty), backgroundColor:m.map(x=>x.color+'aa'), borderRadius:6, borderSkipped:false }], false);
+  mkBar('c_monthly_sales', lbl, [{ label:'Total Sales', data:m.map(x=>x.total_sales), backgroundColor:m.map(x=>x.color+'cc'), borderRadius:6, borderSkipped:false }], true);
+
+  // Monthly summary table
+  const months_all = [...new Set(ALL.map(d=>d.month))].sort((a,b)=>a-b);
+  document.getElementById('monthlySummaryTable').innerHTML = `
+    <thead><tr>
+      <th>Month</th><th>Trading Days</th><th>Total Profit (MRP)</th>
+      <th>Avg Profit% MRP</th><th>Avg Profit% Purchase</th>
+      <th>Total Sales</th><th>Total Qty</th>
+      <th>Retail Profit</th><th>WS Profit</th><th>Best Day</th>
+    </tr></thead>
+    <tbody>${m.map(x=>`<tr>
+      <td><span class="td-month" style="background:${x.color}">${x.name}</span></td>
+      <td class="mono">${x.days}</td>
+      <td class="mono" style="color:${x.color}">${fmtL(x.total_profit_mrp)}</td>
+      <td class="mono">${x.avg_profit_mrp_pct.toFixed(2)}%</td>
+      <td class="mono">${x.avg_profit_pur_pct.toFixed(2)}%</td>
+      <td class="mono">${fmtL(x.total_sales)}</td>
+      <td class="mono">${fmtK(x.total_qty)}</td>
+      <td class="mono">${fmtL(x.total_retail_profit)}</td>
+      <td class="mono">${fmtL(x.total_ws_profit)}</td>
+      <td class="mono">${x.best_day}</td>
+    </tr>`).join('')}</tbody>`;
+}
+
+// ── COMPARISON CHARTS ──
+function renderComparison(){
+  const months = [...new Set(filtered.map(d=>d.month))].sort((a,b)=>a-b);
+  if(months.length < 1){ toast('Select at least 1 month'); return; }
+
+  // Build day-index datasets (day 1, 2, 3... of month)
+  const maxDays = Math.max(...months.map(m=>filtered.filter(d=>d.month===m).length));
+  const dayLabels = Array.from({length:maxDays},(_,i)=>'Day '+(i+1));
+
+  const profitDS = months.map(m=>{
+    const rows = filtered.filter(d=>d.month===m).sort((a,b)=>a.date.localeCompare(b.date));
+    return { label:MONTH_NAMES[m], data:rows.map(d=>d.net_profit_mrp), borderColor:MONTH_COLORS[m], backgroundColor:MONTH_COLORS[m]+'15', fill:false, tension:.4, pointRadius:4, pointBackgroundColor:MONTH_COLORS[m], pointBorderColor:'#fff', pointBorderWidth:1.5 };
+  });
+  mkLine('c_mom_profit', dayLabels, profitDS, true);
+
+  const pctDS = months.map(m=>{
+    const rows = filtered.filter(d=>d.month===m).sort((a,b)=>a.date.localeCompare(b.date));
+    return { label:MONTH_NAMES[m], data:rows.map(d=>d.net_profit_mrp_pct||null), borderColor:MONTH_COLORS[m], fill:false, tension:.4, pointRadius:4, pointBackgroundColor:MONTH_COLORS[m], pointBorderColor:'#fff', pointBorderWidth:1.5 };
+  });
+  mkLine('c_mom_pct', dayLabels, pctDS, false);
+
+  const salesDS = months.map(m=>{
+    const rows = filtered.filter(d=>d.month===m).sort((a,b)=>a.date.localeCompare(b.date));
+    return { label:MONTH_NAMES[m], data:rows.map(d=>d.total_sales), borderColor:MONTH_COLORS[m], fill:false, tension:.4, pointRadius:4, pointBackgroundColor:MONTH_COLORS[m], pointBorderColor:'#fff', pointBorderWidth:1.5 };
+  });
+  mkLine('c_mom_sales', dayLabels, salesDS, true);
+
+  // MoM change table
+  const monthly = getMonthly();
+  let tableHTML = `<thead><tr><th>Metric</th>${monthly.map(m=>`<th style="color:${m.color}">${m.name}</th>`).join('')}${monthly.length>1?'<th>Change</th>':''}</tr></thead><tbody>`;
+  const metrics = [
+    {key:'total_profit_mrp',lbl:'Net Profit (MRP)',fmt:fmtL},
+    {key:'avg_profit_mrp_pct',lbl:'Avg Profit% MRP',fmt:v=>v.toFixed(2)+'%'},
+    {key:'avg_profit_pur_pct',lbl:'Avg Profit% Purchase',fmt:v=>v.toFixed(2)+'%'},
+    {key:'total_sales',lbl:'Total Sales',fmt:fmtL},
+    {key:'total_qty',lbl:'Total Qty',fmt:v=>fmtK(v)},
+    {key:'total_retail_profit',lbl:'Retail Profit',fmt:fmtL},
+    {key:'total_ws_profit',lbl:'WS Profit',fmt:fmtL},
+    {key:'days',lbl:'Trading Days',fmt:v=>v},
+  ];
+  metrics.forEach(metric=>{
+    tableHTML += `<tr><td style="font-weight:600;color:var(--text)">${metric.lbl}</td>`;
+    monthly.forEach(m=>{ tableHTML+=`<td class="mono">${metric.fmt(m[metric.key])}</td>`; });
+    if(monthly.length>=2){
+      const first=monthly[0][metric.key], last=monthly[monthly.length-1][metric.key];
+      const chg = typeof first==='number' ? ((last-first)/Math.abs(first)*100) : 0;
+      const cls = chg>0?'chg-pos':chg<0?'chg-neg':'chg-neu';
+      tableHTML+=`<td class="${cls}">${chg>0?'▲':'▼'} ${Math.abs(chg).toFixed(1)}%</td>`;
+    }
+    tableHTML+='</tr>';
+  });
+  tableHTML+='</tbody>';
+  document.getElementById('momTable').innerHTML = tableHTML;
+}
+
+// ── DATA TABLE ──
+let tableData = [];
+function renderTable(){
+  tableData = [...filtered].sort((a,b)=>a.date.localeCompare(b.date));
+  document.getElementById('tblCount').textContent = tableData.length+' records';
+  renderTableRows();
+}
+
+function renderTableRows(){
+  const tbody = document.getElementById('tblBody');
+  tbody.innerHTML = tableData.map((d,i)=>{
+    const p = d.net_profit_mrp_pct;
+    const perf = d.total_sales>800000?['🔥 High','p-green']:d.total_sales>500000?['✅ Normal','p-blue']:['📉 Low','p-amber'];
+    return `<tr id="row_${i}" onclick="toggleRow(${i})">
+      <td class="chk-col"><input type="checkbox" id="chk_${i}" onclick="event.stopPropagation();toggleRow(${i})"></td>
+      <td class="td-date">${d.date}</td>
+      <td><span class="td-month" style="background:${MONTH_COLORS[d.month]}">${MONTH_SHORT[d.month]}</span></td>
+      <td class="mono">${d.total_qty.toLocaleString()}</td>
+      <td class="mono">${fmtL(d.total_sales)}</td>
+      <td class="mono">${fmtL(d.mrp)}</td>
+      <td class="mono">${d.retail_qty.toLocaleString()}</td>
+      <td class="mono">${fmtL(d.retail_sales)}</td>
+      <td class="mono td-profit" style="color:#059669">${fmtL(d.retail_profit)}</td>
+      <td class="mono">${d.ws_qty.toLocaleString()}</td>
+      <td class="mono">${fmtL(d.ws_sales)}</td>
+      <td class="mono td-profit" style="color:#0891b2">${fmtL(d.ws_profit)}</td>
+      <td class="mono td-profit" style="color:${d.net_profit_mrp>80000?'#059669':d.net_profit_mrp>50000?'#d97706':'#dc2626'};font-size:.78rem">${fmtL(d.net_profit_mrp)}</td>
+      <td class="td-pct"><span class="pill-sm ${p>9.5?'p-green':p>8.5?'p-blue':'p-amber'}">${p.toFixed(2)}%</span></td>
+      <td class="td-pct">${d.net_profit_purchase_pct>0?d.net_profit_purchase_pct.toFixed(2)+'%':'—'}</td>
+      <td class="mono">${d.bpc.toFixed(2)}</td>
+      <td class="mono">${fmtL(d.purchase_amt)}</td>
+      <td><span class="pill-sm ${perf[1]}">${perf[0]}</span></td>
+    </tr>`;
+  }).join('');
+  updateSelCount();
+}
+
+function toggleRow(i){
+  const row = document.getElementById('row_'+i);
+  const chk = document.getElementById('chk_'+i);
+  const sel = row.classList.toggle('selected');
+  chk.checked = sel;
+  updateSelCount();
+}
+
+function toggleSelectAll(master){
+  document.querySelectorAll('#tblBody tr').forEach((row,i)=>{
+    if(master.checked){ row.classList.add('selected'); } else { row.classList.remove('selected'); }
+    const chk=document.getElementById('chk_'+i); if(chk) chk.checked=master.checked;
+  });
+  updateSelCount();
+}
+
+function selectAll(){ document.getElementById('selectAllChk').checked=true; toggleSelectAll({checked:true}); }
+function clearSelection(){ document.getElementById('selectAllChk').checked=false; toggleSelectAll({checked:false}); }
+
+function updateSelCount(){
+  const n = document.querySelectorAll('#tblBody tr.selected').length;
+  const el = document.getElementById('selCount');
+  el.style.display = n>0?'inline-block':'none';
+  el.textContent = n+' selected';
+}
+
+function sortTable(field){
+  if(sortField===field) sortAsc=!sortAsc; else { sortField=field; sortAsc=true; }
+  tableData.sort((a,b)=>{
+    const va=a[field], vb=b[field];
+    if(typeof va==='string') return sortAsc?va.localeCompare(vb):vb.localeCompare(va);
+    return sortAsc?va-vb:vb-va;
+  });
+  renderTableRows();
+}
+
+// ── PRINT SELECTED ──
+function printSelected(){
+  const rows = document.querySelectorAll('#tblBody tr.selected');
+  if(rows.length===0){ toast('⚠️ Please select rows to print'); return; }
+
+  const headers = ['Date','Month','Total Qty','Sales Amt','MRP','Retail Qty','Retail Sales','Retail Profit','WS Qty','WS Sales','WS Profit','Net Profit MRP','Profit% MRP','Profit% Purch','BPC','Purchase Amt'];
+
+  let html = `<html><head><title>GP Analytics — Selected Records</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:11px;color:#1a1f36;padding:20px;}
+    h2{font-size:14px;margin-bottom:4px;}
+    p{font-size:10px;color:#666;margin-bottom:12px;}
+    table{width:100%;border-collapse:collapse;}
+    th{background:#1a1f36;color:#fff;padding:5px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.05em;}
+    td{padding:4px 7px;border-bottom:1px solid #e5e9f2;font-size:10px;}
+    tr:nth-child(even) td{background:#f8faff;}
+    .footer{margin-top:16px;font-size:9px;color:#999;}
+  </style></head><body>
+  <h2>GP Analytics Dashboard — Selected Records</h2>
+  <p>Generated: ${new Date().toLocaleString('en-IN')} · ${rows.length} records selected</p>
+  <table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+
+  rows.forEach(row=>{
+    const tds = row.querySelectorAll('td');
+    const vals = Array.from(tds).slice(1).map(td=>td.innerText.trim());
+    html+=`<tr>${vals.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+  });
+
+  html+=`</tbody></table><div class="footer">GP Analytics Dashboard · ${rows.length} records printed</div></body></html>`;
+
+  const w = window.open('','_blank','width=1100,height=700');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(),400);
+  toast(`🖨️ Printing ${rows.length} selected records`);
+}
+
+// ── RENDER ALL ──
+function renderAll(){
+  const active = document.querySelector('.tab.active')?.textContent.trim();
+  renderKPIs();
+  if(active?.includes('Overview')) renderOverview();
+  else if(active?.includes('Trends')) renderTrends();
+  else if(active?.includes('Monthly')) renderMonthly();
+  else if(active?.includes('Comparison')) renderComparison();
+  else if(active?.includes('Table')) renderTable();
+}
+
+
+// ── GOOGLE SHEET CONNECTION ──
+let sheetConnected = false;
+let sheetCsvUrl = '';
+let countdown = 30;
+let countdownTimer;
+
+function connectSheet(){
+  const url = document.getElementById('sheetUrl').value.trim();
+  if(!url){ toast('⚠️ Please paste your Google Sheet CSV link'); return; }
+  sheetCsvUrl = url;
+  sheetConnected = true;
+  document.getElementById('sheetStatus').textContent = '🔄 Connecting...';
+  document.getElementById('sheetStatus').className = 'sheet-status';
+  loadFromSheet();
+}
+
+async function loadFromSheet(){
+  if(!sheetConnected || !sheetCsvUrl) return;
+  try {
+    const res  = await fetch(sheetCsvUrl + '&t=' + Date.now());
+    const text = await res.text();
+    const rows = text.trim().split('\n').map(r => r.split(','));
+    const hdrs = rows[0].map(h => h.trim().toLowerCase().replace(/\s+/g,'_'));
+
+    const parsed = rows.slice(1).map(r => {
+      const o = {};
+      hdrs.forEach((h,i) => o[h] = r[i]?.trim() || '');
+      const getF = (...keys) => { for(const k of keys){ if(o[k] && o[k]!==''){ const v=parseFloat(o[k]); if(!isNaN(v)) return v; } } return 0; };
+      return {
+        date:   o['date'] || o[hdrs[1]] || o[hdrs[0]],
+        month:  parseInt(o['month'] || o[hdrs[2]] || 1),
+        bpc:    getF('bpc'),
+        retail_qty:    getF('retail_qty'),
+        retail_rate:   getF('reatil_rate','retail_rate'),
+        retail_sales:  getF('reatil_sales_amount','retail_sales_amount','retail_sales'),
+        rsv:           getF('rsv'),
+        rpv:           getF('rpv'),
+        retail_profit: getF('retail_profit'),
+        ws_qty:        getF('wholesales_qty','wholesale_qty','ws_qty'),
+        ws_rate:       getF('wholesales_rate','wholesale_rate','ws_rate'),
+        ws_sales:      getF('wholesales_sales_amount','wholesale_sales_amount','ws_sales'),
+        wsv:           getF('wsv'),
+        wpv:           getF('wpv'),
+        ws_profit:     getF('whole_sale_profit','ws_profit'),
+        total_qty:     getF('total_sales_qty','total_qty'),
+        total_sales:   getF('total_sales_amount','total_sales'),
+        mrp:           getF('mrp_amount','mrp'),
+        purchase_rate: getF('purchase_rate'),
+        purchase_amt:  getF('purchase_amount','purchase_amt'),
+        net_profit_mrp:      getF('net_profit_as_on_mrp','net_profit_mrp'),
+        net_profit_mrp_pct:  getF('net_profit_as_on_mrp_%','net_profit_mrp_pct'),
+        net_profit_purchase_pct: getF('net_profit_as_on_purchase_%','net_profit_purchase_pct'),
+      };
+    }).filter(d => d.date && d.date.length > 4);
+
+    if(parsed.length === 0){ throw new Error('No data rows found'); }
+
+    ALL = parsed;
+    filtered = [...ALL];
+
+    // Rebuild month pills for new months
+    initMonthPills();
+    setDateRange();
+    renderAll();
+
+    document.getElementById('sheetStatus').textContent = '✅ Connected — ' + ALL.length + ' rows loaded';
+    document.getElementById('sheetStatus').className = 'sheet-status ok';
+    document.getElementById('lastUpdatedTxt').textContent = 'Last updated: ' + new Date().toLocaleTimeString('en-IN');
+    toast('✅ Google Sheet connected! ' + ALL.length + ' rows loaded');
+  } catch(e) {
+    console.error(e);
+    document.getElementById('sheetStatus').textContent = '❌ Failed — check your URL or sheet format';
+    toast('❌ Could not connect. Check your link.');
+  }
+}
+
+async function autoRefresh(){
+  if(sheetConnected) await loadFromSheet();
+  document.getElementById('lastUpdatedTxt').textContent = 'Last updated: ' + new Date().toLocaleTimeString('en-IN');
+}
+
+function manualRefresh(){
+  autoRefresh();
+  toast('🔄 Dashboard refreshed!');
+}
+
+function startCountdown(){
+  clearInterval(countdownTimer);
+  countdown = 30;
+  countdownTimer = setInterval(() => {
+    countdown--;
+    document.getElementById('countdownTxt').textContent = countdown + 's';
+    document.getElementById('rbarFill').style.width = (countdown / 30 * 100) + '%';
+    if(countdown <= 0){ autoRefresh(); countdown = 30; }
+  }, 1000);
+}
+
+
+// ── INIT ──
+initMonthPills();
+setDateRange();
+renderAll();
+startCountdown();
+toast('📊 GP Dashboard ready! Paste your Google Sheet link above to enable live updates.');
+</script>
+</body>
+</html>
